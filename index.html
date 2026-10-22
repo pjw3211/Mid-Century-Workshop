@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mid-Century Workshop</title>
+<link rel="icon" href="./favicon.svg" type="image/svg+xml">
+<style>
+  :root {
+    --bg: #f4efe6; --panel: #fffaf2; --ink: #2b2118; --muted: #7a6a58;
+    --line: #e2d7c5; --accent: #c0612b; --warn: #a8461b; --ok: #3d6b4f;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink);
+    font-family: "Futura", "Century Gothic", "Avenir Next", system-ui, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-bottom: 1px solid var(--line);
+    background: var(--panel); height: 58px; }
+  header h1 { font-size: 16px; letter-spacing: .1em; text-transform: uppercase; margin: 0; flex: 1; }
+  header h1 button { all: unset; cursor: pointer; }
+  .units { display: flex; border: 1.5px solid var(--line); border-radius: 9px; overflow: hidden; }
+  .units button { border: 0; background: #fff; font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer; color: var(--muted); }
+  .units button[aria-pressed="true"] { background: var(--ink); color: #fff; }
+  main { height: calc(100% - 58px); }
+  [hidden] { display: none !important; }
+
+  /* Step 1: choose a piece */
+  #home { max-width: 860px; margin: 0 auto; padding: 40px 20px; }
+  #home h2 { font-size: 22px; margin: 0 0 6px; }
+  #home p { color: var(--muted); margin: 0 0 24px; line-height: 1.5; }
+  .pieces { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; }
+  .piece { border: 1.5px solid var(--line); background: #fff; border-radius: 14px; padding: 14px; text-align: left;
+    font: inherit; color: inherit; cursor: pointer; display: grid; gap: 6px; }
+  .piece:hover:not(:disabled) { border-color: var(--accent); box-shadow: 0 0 0 3px #c0612b22; }
+  .piece:disabled { cursor: default; opacity: .55; }
+  .piece svg { width: 100%; height: auto; background: #f7f1e7; border-radius: 9px; }
+  .piece b { font-size: 16px; }
+  .piece span { font-size: 13px; color: var(--muted); }
+
+  /* Step 2: design */
+  #design { display: grid; grid-template-columns: 380px 1fr; height: 100%; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 14px 20px 28px; }
+  .back { all: unset; cursor: pointer; color: var(--muted); font-size: 13px; }
+  aside h2 { font-size: 20px; margin: 6px 0 2px; }
+  section { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
+  section h3 { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+  .field { display: grid; gap: 3px; margin-bottom: 10px; }
+  .field label { font-size: 13px; }
+  select, input[type=number] { font: inherit; font-size: 14px; padding: 7px 9px; border: 1.5px solid var(--line);
+    border-radius: 9px; background: #fff; color: inherit; width: 100%; }
+  select:focus, input:focus { outline: 2px solid #c0612b55; border-color: var(--accent); }
+  .why { font-size: 12px; color: var(--muted); line-height: 1.4; }
+  .dims { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .dims label { font-size: 12px; color: var(--muted); }
+  .stage { position: relative; display: grid; grid-template-rows: 1fr auto; min-width: 0; }
+  #view { position: relative; min-height: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; }
+  .overlay { position: absolute; left: 14px; top: 12px; display: flex; gap: 8px; align-items: center; }
+  .chip { background: #fffaf2ee; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; }
+  .chip button { all: unset; cursor: pointer; }
+  #status.busy::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 7px; border-radius: 50%;
+    border: 2px solid var(--accent); border-right-color: transparent; animation: spin .8s linear infinite; vertical-align: -1px; }
+  #status.error { color: var(--warn); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .export { background: var(--panel); border-top: 1px solid var(--line); padding: 12px 20px; display: grid; gap: 10px;
+    grid-template-columns: 1fr auto; align-items: start; max-height: 42vh; overflow-y: auto; }
+  .export h3 { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+  table { border-collapse: collapse; font-size: 13px; width: 100%; }
+  th, td { text-align: left; padding: 3px 10px 3px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { font-weight: 600; color: var(--muted); font-size: 12px; }
+  .buy { font-size: 13px; margin-top: 8px; color: var(--muted); }
+  .notes { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+  .actions { display: grid; gap: 8px; min-width: 230px; }
+  .actions button { font: inherit; font-size: 14px; padding: 10px 14px; border-radius: 10px; border: 0; cursor: pointer;
+    background: var(--ink); color: #fff; text-align: left; }
+  .actions button:disabled { opacity: .45; cursor: default; }
+  .actions small { display: block; font-size: 11px; opacity: .75; }
+  @media (max-width: 860px) {
+    #design { grid-template-columns: 1fr; height: auto; }
+    aside { border-right: 0; }
+    .stage { grid-template-rows: 60vh auto; }
+    .export { grid-template-columns: 1fr; max-height: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><button id="home-link" type="button">Mid-Century Workshop</button></h1>
+  <div class="units" role="group" aria-label="Units">
+    <button type="button" data-units="in" aria-pressed="true">in</button>
+    <button type="button" data-units="mm" aria-pressed="false">mm</button>
+  </div>
+</header>
+<main>
+  <div id="home">
+    <h2>Choose a piece to design</h2>
+    <p>Pick a piece, choose its size, features, edge profiles and joints, then download every part as a flat DXF and a cut list with the boards to buy.</p>
+    <div class="pieces">
+      <button class="piece" type="button" data-piece="coffee_table">
+        <svg viewBox="0 0 240 130" aria-hidden="true">
+          <path d="M28 52 L212 52 L206 61 L34 61 Z" fill="#5a3a24"/>
+          <rect x="44" y="61" width="152" height="11" fill="#6b4630"/>
+          <path d="M50 61 l6 0 l-5 50 l-3 0 Z M184 61 l6 0 l1 50 l-3 0 Z M70 61 l5 0 l-2 40 l-3 0 Z M165 61 l5 0 l0 40 l-3 0 Z" fill="#4a3020"/>
+          <rect x="62" y="88" width="116" height="4" fill="#7a5238"/>
+        </svg>
+        <b>Mid-century coffee table</b>
+        <span>Tapered or splayed legs, optional slatted shelf, seven joint choices.</span>
+      </button>
+      <button class="piece" type="button" disabled>
+        <svg viewBox="0 0 240 130" aria-hidden="true"><text x="120" y="70" text-anchor="middle" font-size="13" fill="#7a6a58">More pieces later</text></svg>
+        <b>Side table, credenza…</b>
+        <span>Coming once the coffee table works end to end.</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="design" hidden>
+    <aside>
+      <button class="back" id="back" type="button">← All pieces</button>
+      <h2>Mid-century coffee table</h2>
+      <div id="groups"></div>
+    </aside>
+    <div class="stage">
+      <div id="view">
+        <div class="overlay">
+          <span class="chip" id="status">Starting…</span>
+          <span class="chip"><button id="explode" type="button" aria-pressed="false">Pull apart</button></span>
+        </div>
+      </div>
+      <div class="export">
+        <div>
+          <h3>Parts</h3>
+          <div id="parts"></div>
+          <div class="buy" id="buy"></div>
+          <div class="notes" id="notes"></div>
+        </div>
+        <div class="actions">
+          <div class="field">
+            <label for="board">Boards you buy</label>
+            <select id="board"></select>
+          </div>
+          <button id="dl-dxf" type="button" disabled>Download DXF<small>every part laid flat, one file</small></button>
+          <button id="dl-pdf" type="button" disabled>Download cut list (PDF)<small>sizes, what to buy, board layout</small></button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
