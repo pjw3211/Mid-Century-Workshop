@@ -113,7 +113,10 @@ function buildLeg(R, s, d, sx, sy) {
   const section = size => legSection(R, s, size);
   const lower = section(foot).translate(fx, fy).sketchOnPlane("XY", 0)
     .loftWith(section(top).translate(cx, cy).sketchOnPlane("XY", zHead), { ruled: true });
-  const head = section(top).translate(cx, cy).sketchOnPlane("XY", zHead).extrude(d.apron_top * MM - zHead);
+  // The head, where the aprons join, is always square so their shoulders sit
+  // flat against it; round legs are turned below it.
+  const headSection = s.leg_section === "round" ? R.drawRectangle(top, top) : section(top);
+  const head = headSection.translate(cx, cy).sketchOnPlane("XY", zHead).extrude(d.apron_top * MM - zHead);
   return lower.fuse(head).simplify();
 }
 

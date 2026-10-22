@@ -119,3 +119,20 @@ describe("exports", () => {
     expect(buf.byteLength).toBeGreaterThan(5000);
   }, 120000);
 });
+
+describe("leg heads", () => {
+  it("round legs have a square head where the aprons join, the same as square legs", () => {
+    const head = choice => {
+      const s = toParams(choice), { parts } = buildTableSolids(R, s);
+      const leg = parts.find(p => p.id === "leg-front-right"), b = bounds(leg.solid);
+      // The head zone: from the apron's bottom edge to the top of the leg.
+      const z0 = (s.table_h - s.top_t - s.apron_h) * 25.4, box = R.makeBox([b.min[0], b.min[1], z0], [b.max[0], b.max[1], b.max[2]]);
+      const inHead = R.measureVolume(leg.solid.intersect(box));
+      for (const p of parts) p.solid.delete();
+      return inHead;
+    };
+    const square = head({ legs: "square" });
+    expect(head({ legs: "round" })).toBeCloseTo(square, -1);
+    expect(head({ legs: "splayed" })).toBeCloseTo(square, -1);
+  }, 120000);
+});
