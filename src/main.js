@@ -5,7 +5,8 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { cad } from "./cad/client.js";
-import { GROUPS, FIELDS, SIZES, LIMITS, DEFAULT_CHOICE, MM, unavailable, normalize, toParams, sizeOf, summary } from "./coffeeTable.js";
+import { GROUPS, SIZES, LIMITS, DEFAULT_CHOICE, MM, unavailable, normalize, toParams, sizeOf, summary, sliderState } from "./coffeeTable.js";
+import { picture } from "./pictures.js";
 import { BOARDS, DEFAULT_BOARD } from "./cutlist/layout.js";
 import { cutListPDF, fraction } from "./cutlist/pdf.js";
 
@@ -40,7 +41,7 @@ $("board").innerHTML = BOARDS.map(b => `<option value="${b.id}">${b.name}</optio
 $("board").value = state.board;
 $("board").onchange = () => { state.board = $("board").value; save(); };
 
-// ---- the dropdowns ------------------------------------------------------------
+// ---- the choices: pictures, the size dropdown and sliders ------------------------------------------------------------
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const toUnits = inches => state.units === "mm" ? Math.round(inches * MM) : inches;
 const fromUnits = v => state.units === "mm" ? v / MM : v;
@@ -52,20 +53,36 @@ function sizeLabel(s) {
     : `${s.name}: ${s.l} × ${s.w} × ${s.h} in`;
 }
 
+const DEFAULT_OPEN = { size: true, legs: true };
+const isOpen = id => (state.open || DEFAULT_OPEN)[id] ?? false;
+
+// A slider value in the units shown: inches as fractions, mm whole.
+function sliderText(v, unit) {
+  if (unit !== "in") return `${+v.toFixed(1)}${unit}`;
+  return state.units === "mm" ? `${Math.round(v * MM)} mm` : `${fraction(v * MM)} in`;
+}
+
 function renderGroups() {
-  const c = state.choice, out = [];
+  const c = state.choice, out = [], sliders = sliderState(c);
   for (const g of GROUPS) {
-    out.push(`<section data-group="${g.id}"><h3>${g.title}</h3>`);
+    const picks = g.fields.filter(f => !f.dropdown).map(f => f.options.find(o => o.id === c[f.key])?.name).join(", ");
+    const head = g.id === "size" ? sizeLabel(SIZES.find(s => s.id === c.size)) : picks;
+    out.push(`<details data-group="${g.id}"${isOpen(g.id) ? " open" : ""}><summary><h3>${g.title}</h3><span class="picked">${esc(head)}</span></summary>`);
     for (const f of g.fields) {
-      const opts = f.options.map(o => {
-        const why = unavailable(c, f.key, o.id);
-        const name = f.key === "size" ? sizeLabel(SIZES.find(s => s.id === o.id)) : o.name;
-        return `<option value="${o.id}"${o.id === c[f.key] ? " selected" : ""}${why ? ` disabled title="${esc(why)}"` : ""}>${esc(name)}${why ? " (not with these choices)" : ""}</option>`;
-      }).join("");
       const picked = f.options.find(o => o.id === c[f.key]);
-      out.push(`<div class="field"><label for="f-${f.key}">${f.label}</label><select id="f-${f.key}" data-key="${f.key}">${opts}</select>`);
-      if (picked?.desc) out.push(`<div class="why">${esc(picked.desc)}</div>`);
-      out.push(`</div>`);
+      if (f.dropdown) {
+        const opts = f.options.map(o => `<option value="${o.id}"${o.id === c[f.key] ? " selected" : ""}>${esc(sizeLabel(SIZES.find(s => s.id === o.id)))}</option>`).join("");
+        out.push(`<div class="field"><label for="f-${f.key}">${f.label}</label><select id="f-${f.key}" data-key="${f.key}">${opts}</select></div>`);
+      } else {
+        out.push(`<div class="field"><div class="flabel">${f.label}</div><div class="tiles" role="radiogroup" aria-label="${f.label}">`);
+        for (const o of f.options) {
+          const why = unavailable(c, f.key, o.id);
+          out.push(`<button type="button" class="tile" role="radio" data-key="${f.key}" data-val="${o.id}" aria-checked="${o.id === c[f.key]}"${why ? ` disabled title="${esc(why)}"` : ""}>${picture(f.key, o.id)}<b>${esc(o.name)}</b></button>`);
+        }
+        out.push(`</div>`);
+        if (picked?.desc) out.push(`<div class="why">${esc(picked.desc)}</div>`);
+        out.push(`</div>`);
+      }
       if (f.key === "size" && c.size === "custom") {
         const sz = sizeOf(c), u = state.units, step = u === "mm" ? 5 : 0.5;
         const box = (k, label) => `<div><label for="d-${k}">${label} (${u})</label><input type="number" id="d-${k}" data-dim="${k}"
@@ -73,19 +90,44 @@ function renderGroups() {
         out.push(`<div class="dims">${box("l", "Length")}${box("w", "Width")}${box("h", "Height")}</div>`);
       }
     }
-    out.push(`</section>`);
+    const sl = (g.sliders || []).filter(x => sliders[x.key]);
+    if (sl.length) {
+      out.push(`<div class="sliders">`);
+      for (const x of sl) {
+        const v = sliders[x.key];
+        out.push(`<div class="sl"><label for="s-${x.key}">${esc(x.label)}</label><output id="o-${x.key}">${sliderText(v.value, v.unit)}</output>
+          <input type="range" id="s-${x.key}" data-slider="${x.key}" data-unit="${v.unit}" min="${v.min}" max="${v.max}" step="${v.step}" value="${Math.min(v.max, Math.max(v.min, v.value))}"></div>`);
+      }
+      if (sl.some(x => sliders[x.key].set)) out.push(`<button type="button" class="reset" data-reset="${g.id}">Reset these sliders</button>`);
+      out.push(`</div>`);
+    }
+    out.push(`</details>`);
   }
   $("groups").innerHTML = out.join("");
+  const commit = next => { state.choice = normalize(next); save(); renderGroups(); scheduleBuild(); };
+  for (const d of $("groups").querySelectorAll("details")) d.ontoggle = () => {
+    state.open = { ...(state.open || DEFAULT_OPEN), [d.dataset.group]: d.open }; save();
+  };
   for (const sel of $("groups").querySelectorAll("select")) sel.onchange = () => {
     const key = sel.dataset.key;
-    state.choice = normalize({ ...state.choice, [key]: sel.value, ...(key === "size" && sel.value === "custom" ? sizeOf(state.choice) : {}) });
-    save(); renderGroups(); scheduleBuild();
+    commit({ ...state.choice, [key]: sel.value, ...(key === "size" && sel.value === "custom" ? sizeOf(state.choice) : {}) });
+  };
+  for (const t of $("groups").querySelectorAll(".tile")) t.onclick = () => {
+    if (state.choice[t.dataset.key] !== t.dataset.val) commit({ ...state.choice, [t.dataset.key]: t.dataset.val });
+  };
+  for (const inp of $("groups").querySelectorAll("[data-slider]")) {
+    inp.oninput = () => { $("o-" + inp.dataset.slider).textContent = sliderText(+inp.value, inp.dataset.unit); };
+    inp.onchange = () => commit({ ...state.choice, [inp.dataset.slider]: +inp.value });
+  }
+  for (const b of $("groups").querySelectorAll("[data-reset]")) b.onclick = () => {
+    const next = { ...state.choice };
+    for (const x of GROUPS.find(g => g.id === b.dataset.reset).sliders) delete next[x.key];
+    commit(next);
   };
   for (const inp of $("groups").querySelectorAll("[data-dim]")) inp.onchange = () => {
     const v = parseFloat(inp.value);
     if (!isFinite(v)) return;
-    state.choice = normalize({ ...state.choice, [inp.dataset.dim]: fromUnits(v) });
-    save(); renderGroups(); scheduleBuild();
+    commit({ ...state.choice, [inp.dataset.dim]: fromUnits(v) });
   };
 }
 

@@ -3,31 +3,19 @@
 // actually join, and the DXF and cut list must come out of it.
 import { describe, it, expect, beforeAll } from "vitest";
 import { buildTableSolids } from "../src/cad/table.js";
-import { toParams, GROUPS, FIELDS, DEFAULT_CHOICE, unavailable, normalize, summary, sizeOf } from "../src/coffeeTable.js";
+import { toParams, GROUPS, FIELDS, DEFAULT_CHOICE, unavailable, normalize, summary, sizeOf, SLIDERS, sliderState } from "../src/coffeeTable.js";
 import { PEGGABLE } from "../src/cad/tableJoinery.js";
 import { bounds, cutList, hardwareList, flatLayoutDXF } from "../src/cad/exports.js";
 import { readDXF } from "../src/cad/dxf.js";
 import { cutListPDF } from "../src/cutlist/pdf.js";
 import { BOARDS } from "../src/cutlist/layout.js";
-import { overlaps, missingJoints } from "./joinery-helpers.js";
+import { checkTable } from "./check-table.js";
 import { loadReplicad } from "./oc-node.js";
 
 let R;
 beforeAll(async () => { R = await loadReplicad(); }, 60000);
 
-function check(choice) {
-  const { parts, joints, notes } = buildTableSolids(R, toParams(choice));
-  const built = parts.map(p => {
-    const { min, max } = bounds(p.solid);
-    return { b: { id: p.id, kind: p.kind }, solid: p.solid, box: { min, max } };
-  });
-  for (const x of built) expect(R.measureVolume(x.solid), x.b.id).toBeGreaterThan(1);
-  expect(overlaps(R, built), "overlapping parts").toEqual([]);
-  expect(missingJoints(R, { joints }, built), "joints that don't join").toEqual([]);
-  // Free the solids: the engine's memory is shared by every test in the file.
-  for (const p of parts) p.solid.delete();
-  return { parts, joints, notes };
-}
+const check = choice => checkTable(R, choice);
 
 describe("every dropdown option builds, nothing overlaps and every joint joins", () => {
   for (const g of GROUPS) for (const f of g.fields) for (const o of f.options) {

@@ -16,6 +16,13 @@ test.afterEach(async ({ page }) => {
   expect(page.errors).toEqual([]);
 });
 
+// Click a picture tile, opening its section first.
+async function pick(page, key, val) {
+  const tile = page.locator(`.tile[data-key="${key}"][data-val="${val}"]`);
+  if (!(await tile.isVisible())) await page.locator("details", { has: tile }).locator("summary").click();
+  await tile.click();
+}
+
 const built = page => page.evaluate(() => window.__built || 0);
 async function waitForBuild(page, after) {
   await expect.poll(() => built(page), { timeout: 90000 }).toBeGreaterThan(after);
@@ -26,27 +33,31 @@ test("choose the coffee table, pick from the dropdowns, download the DXF and cut
   await expect(page.locator("#home")).toBeVisible();
   await page.locator('[data-piece="coffee_table"]').click();
   await expect(page.locator("#design")).toBeVisible();
-  for (const title of ["Size", "Features", "Profiles", "Joinery"])
-    await expect(page.locator("section h3", { hasText: title })).toBeVisible();
+  for (const title of ["Size", "Legs", "Features", "Profiles", "Joinery"])
+    await expect(page.locator("summary h3", { hasText: title })).toBeVisible();
+  // Folded sections open when clicked.
+  await expect(page.locator('details[data-group="joinery"]')).not.toHaveAttribute("open", "");
+  await page.locator('details[data-group="joinery"] summary').click();
+  await expect(page.locator('details[data-group="joinery"]')).toHaveAttribute("open", "");
   await waitForBuild(page, 0);
   await expect(page.locator("#parts")).toContainText("Leg");
 
   // A slatted shelf, pegs and loose tenons: the parts list follows.
   let n = await built(page);
-  await page.selectOption("#f-shelf", "slats");
+  await pick(page, "shelf", "slats");
   await waitForBuild(page, n);
   await expect(page.locator("#parts")).toContainText("Shelf slat");
   n = await built(page);
-  await page.selectOption("#f-joint", "domino");
+  await pick(page, "joint", "domino");
   await waitForBuild(page, n);
   n = await built(page);
-  await page.selectOption("#f-pegs", "pegged");
+  await pick(page, "pegs", "pegged");
   await waitForBuild(page, n);
   await expect(page.locator("#buy")).toContainText("Domino");
   await expect(page.locator("#buy")).toContainText("Dowel peg");
 
   // Pegs rule out joints without a tenon.
-  await expect(page.locator('#f-joint option[value="dowels"]')).toBeDisabled();
+  await expect(page.locator('.tile[data-key="joint"][data-val="dowels"]')).toBeDisabled();
 
   const dxf = page.waitForEvent("download", { timeout: 60000 });
   await page.locator("#dl-dxf").click();
@@ -81,4 +92,17 @@ test("pull apart shows the joints", async ({ page }) => {
   await waitForBuild(page, 0);
   await page.locator("#explode").click();
   await expect(page.locator("#explode")).toHaveText("Put together");
+});
+
+test("sliders change the parts", async ({ page }) => {
+  await page.locator('[data-piece="coffee_table"]').click();
+  await waitForBuild(page, 0);
+  const n = await built(page);
+  const s = page.locator("#s-top_t");
+  if (!(await s.isVisible())) await page.locator('details[data-group="features"] summary').click();
+  await s.fill("1.5");
+  await s.dispatchEvent("change");
+  await waitForBuild(page, n);
+  await expect(page.locator("#parts")).toContainText("48 × 22 × 1-1/2");
+  await expect(page.locator('[data-reset="features"]')).toBeVisible();
 });

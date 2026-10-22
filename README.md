@@ -9,9 +9,10 @@ Design a mid-century modern coffee table from dropdowns, then download every par
 ## What it does
 
 1. **Choose a piece.** For now there is one: the mid-century coffee table.
-2. **Pick from the dropdowns.**
+2. **Pick from the pictures and sliders.** Each section folds open and closed.
    - **Size:** small, medium, large, long and low, or your own length, width and height.
-   - **Features:** square or round legs, tapered or splayed; straight or arched aprons; top shape; a slatted or solid lower shelf; pegged tenons; the wood.
+   - **Legs:** square or round, tapered or splayed, with sliders for thickness, taper, splay and where the legs sit.
+   - **Features:** straight or arched aprons, top shape, a slatted or solid lower shelf, pegged tenons, the wood, with sliders for apron height, arch, top thickness, corner radius and shelf height.
    - **Profiles:** the top edge (undercut bevel, square, eased, roundover, chamfer) and the leg edges.
    - **Joinery:** how the legs join the aprons (seven joints, from haunched mortise and tenon to pocket screws) and how the top is held on (buttons, Z-clips, figure-8s, corner blocks). Choices that don't go together are greyed out.
 3. **Check it in 3D.** Every part is an exact solid with its joints cut. "Pull apart" spreads the parts so the joints show.
